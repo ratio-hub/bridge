@@ -1,0 +1,74 @@
+{
+  "name": "@ratiojs/bridge",
+  "version": "1.0.0",
+  "description": "Type-safe cross-WebView messaging with Standard Schema validation",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ratio-hub/bridge.git"
+  },
+  "keywords": [
+    "bridge",
+    "webview",
+    "react-native",
+    "rpc",
+    "type-safe",
+    "standard-schema"
+  ],
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.js"
+    },
+    "./react-native": {
+      "types": "./dist/react-native/index.d.ts",
+      "import": "./dist/react-native/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src",
+    "LICENSE",
+    "README.md",
+    "llms.txt"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run build"
+  },
+  "workspaces": [
+    "examples/*"
+  ],
+  "peerDependencies": {
+    "react": "^18 || ^19",
+    "react-native": ">=0.71",
+    "react-native-webview": "^13"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-native": {
+      "optional": true
+    },
+    "react-native-webview": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "^19",
+    "typescript": "~5.9.2",
+    "zod": "^3.24"
+  }
+}

@@ -1,0 +1,136 @@
+# @ratiojs/bridge
+
+Type-safe cross-WebView messaging library with Standard Schema validation.
+
+## Core Concepts
+
+- **Contract**: Defines the API shape. Built with `bridge.base().procedure` or `.subscription`.
+- **Procedure**: Request → response. Supports `.input(schema)`, `.output(schema)`, `.timeout(ms)`.
+- **Subscription**: Fire-and-forget message. Supports `.input(schema)`.
+- **Transport**: Interface with `send(data: string)` and `subscribe(handler) => unsubscribe`.
+- **Standard Schema**: Any schema library implementing the Standard Schema V1 interface (Zod, Valibot, ArkType, etc.).
+
+## File Structure
+
+```
+src/
+  index.ts          — public API, re-exports, `bridge` entry point
+  contract.ts       — ProcedureDef, SubscriptionDef, BaseBuilder (immutable builders)
+  client.ts         — createBridgeClient() — typed proxy via InferClient<T>
+  handler.ts        — createBridgeHandler() — message dispatcher via InferHandlers<T>
+  transport.ts      — BridgeTransport interface, webViewTransport(), iframeTransport()
+  errors.ts         — BridgeError, BridgeTimeoutError, BridgeValidationError
+  types.ts          — StandardSchemaV1, wire protocol types, type inference utilities
+  schema.ts         — validate() using ~standard.validate() interface
+  queue.ts          — SubscriptionQueue — FIFO per-path, error-resilient
+  react/index.ts    — useBridgeClient, useBridgeHandler (web side, defaults to webViewTransport)
+  react-native/index.ts — useBridge, useBridgeClient, useBridgeHandler (native side)
+```
+
+## Common Patterns
+
+### Define a contract
+
+```ts
+import { bridge } from '@ratiojs/bridge';
+import { z } from 'zod';
+
+const contract = {
+  getUser: bridge.base()
+    .procedure
+    .input(z.object({ id: z.string() }))
+    .output(z.object({ name: z.string() }))
+    .timeout(5000),
+  onEvent: bridge.base()
+    .subscription
+    .input(z.object({ type: z.string() })),
+  // Nest for namespaces
+  auth: {
+    login: bridge.base().procedure.input(z.object({ token: z.string() })),
+  },
+};
+```
+
+### Shared errors
+
+```ts
+const base = bridge.base().errors({
+  NOT_FOUND: z.object({ id: z.string() }),
+});
+const contract = {
+  getUser: base.procedure.input(z.object({ id: z.string() })),
+};
+```
+
+### Create handler
+
+```ts
+import { createBridgeHandler, BridgeError } from '@ratiojs/bridge';
+
+const handler = createBridgeHandler(contract, {
+  getUser: ({ input }) => {
+    throw new BridgeError('NOT_FOUND', { id: input.id });
+  },
+}, (data) => transport.send(data));
+
+transport.subscribe((data) => handler.handleMessage(data));
+```
+
+### Create client
+
+```ts
+import { createBridgeClient } from '@ratiojs/bridge';
+
+const client = createBridgeClient(contract, transport);
+const user = await client.getUser({ id: '123' });
+// With error callback (return type becomes T | undefined)
+const user = await client.getUser({ id: '123' }, {
+  onError: (err) => console.log(err.code, err.data),
+});
+```
+
+### Custom transport
+
+```ts
+import type { BridgeTransport } from '@ratiojs/bridge';
+
+const wsTransport: BridgeTransport = {
+  send: (data) => ws.send(data),
+  subscribe: (handler) => {
+    ws.addEventListener('message', (e) => handler(e.data));
+    return () => ws.removeEventListener('message', handler);
+  },
+};
+```
+
+### React hooks (web side)
+
+```ts
+import { useBridgeClient, useBridgeHandler } from '@ratiojs/bridge/react';
+const client = useBridgeClient(contract); // defaults to webViewTransport
+useBridgeHandler(contract, handlers);
+```
+
+### React Native hooks
+
+```ts
+import { useBridge, useBridgeClient, useBridgeHandler } from '@ratiojs/bridge/react-native';
+const { transport, dispatch } = useBridge((data) => webViewRef.current?.postMessage(data));
+useBridgeHandler(contract, handlers, transport);
+const client = useBridgeClient(contract, transport);
+// Wire dispatch to WebView's onMessage
+```
+
+## Wire Protocol
+
+Messages are JSON strings with `{ __bridge: 1, id, type }`:
+
+- `type: 'request'` — `{ kind: 'procedure'|'subscription', path: string[], input }`
+- `type: 'response'` — `{ output }`
+- `type: 'error'` — `{ error: { code: string, data: unknown } }`
+
+## Error Classes
+
+- `BridgeError(code, data)` — application error, sent over the wire
+- `BridgeTimeoutError(path, timeoutMs)` — procedure timeout
+- `BridgeValidationError(message, issues)` — schema validation failure

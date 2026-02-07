@@ -1,0 +1,229 @@
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: #fafafa;
+}
+
+.app {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+}
+
+h1 {
+  font-size: 1.4rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+h2 {
+  font-size: 1rem;
+  margin: 0 0 0.25rem;
+  color: #333;
+}
+
+.description {
+  font-size: 0.78rem;
+  color: #888;
+  margin: 0 0 0.75rem;
+  line-height: 1.4;
+}
+
+.card {
+  background: #f8f8f8;
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+button {
+  background: #646cff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+button:hover {
+  background: #535bf2;
+}
+
+button:active {
+  background: #4349d6;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.counter-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.counter-value {
+  font-size: 2rem;
+  font-weight: 600;
+  min-width: 3rem;
+  text-align: center;
+}
+
+.haptic-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.haptic-buttons button {
+  flex: 1;
+  text-transform: capitalize;
+}
+
+.tab-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.tab-buttons button {
+  flex: 1;
+  text-transform: capitalize;
+}
+
+.tab-buttons button.active {
+  background: #3b40a0;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.error-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.device-info {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.device-info li {
+  padding: 0.25rem 0;
+  border-bottom: 1px solid #eee;
+}
+
+.device-info li:last-child {
+  border-bottom: none;
+}
+
+.status {
+  color: #888;
+  font-size: 0.85rem;
+  margin: 0.5rem 0 0;
+}
+
+.result {
+  color: #2e7d32;
+  font-size: 0.85rem;
+  margin: 0.5rem 0 0;
+}
+
+.error {
+  color: #e53935;
+  font-size: 0.85rem;
+  margin: 0.5rem 0 0;
+  word-break: break-word;
+}
+
+.notification-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  pointer-events: none;
+}
+
+.notification {
+  background: #1e1e2e;
+  color: #fff;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  animation: slide-in 0.3s ease-out;
+  pointer-events: auto;
+}
+
+.notification strong {
+  font-size: 0.85rem;
+}
+
+.notification span {
+  font-size: 0.78rem;
+  opacity: 0.85;
+}
+
+@keyframes slide-in {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  html {
+    background: #121212;
+  }
+
+  .app {
+    color: #e0e0e0;
+  }
+
+  h2 {
+    color: #ccc;
+  }
+
+  .description {
+    color: #777;
+  }
+
+  .card {
+    background: #1e1e1e;
+  }
+
+  .device-info li {
+    border-bottom-color: #333;
+  }
+
+  .result {
+    color: #66bb6a;
+  }
+
+  .error {
+    color: #ef5350;
+  }
+}
