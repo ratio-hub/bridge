@@ -14,9 +14,11 @@ declare const window: {
 export function webViewTransport(): BridgeTransport {
   return {
     send(data: string) {
+      if (typeof window === 'undefined') return;
       window.ReactNativeWebView?.postMessage(data);
     },
     subscribe(handler: (data: string) => void) {
+      if (typeof window === 'undefined') return () => {};
       const listener = (event: { data: string }) => {
         if (typeof event.data === 'string') {
           handler(event.data);
@@ -43,6 +45,7 @@ export function iframeTransport(
           handler(event.data);
         }
       };
+      if (typeof window === 'undefined') return () => {};
       window.addEventListener('message', listener as any);
       return () => window.removeEventListener('message', listener as any);
     },
