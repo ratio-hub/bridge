@@ -114,27 +114,31 @@ import { useBridgeClient, useBridgeHandler } from '@ratiojs/bridge/react';
 
 // As a client (calling native)
 function App() {
-  const client = useBridgeClient(contract);
+  const client = useBridgeClient({ contract });
   // client.greet({ name: 'World' }) → Promise<{ message: string }>
 }
 
 // As a handler (responding to native)
 function App() {
-  useBridgeHandler(contract, {
-    onButtonPress: ({ input }) => {
-      console.log('Button pressed:', input.buttonId);
+  useBridgeHandler({
+    contract,
+    handlers: {
+      onButtonPress: ({ input }) => {
+        console.log('Button pressed:', input.buttonId);
+      },
     },
   });
 }
 ```
 
-The web hooks default to `webViewTransport()` (uses `window.ReactNativeWebView.postMessage` + `message` event listener). Pass a custom transport as the last argument to override.
+The web hooks default to `webViewTransport()` (uses `window.ReactNativeWebView.postMessage` + `message` event listener). Pass a custom transport via the object when needed, for example `useBridgeClient({ contract, transport })` or `useBridgeHandler({ contract, transport, handlers })`.
 
 ## React Native Hooks
 
 For the React Native side:
 
 ```tsx
+import { useRef } from 'react';
 import { WebView } from 'react-native-webview';
 import {
   useBridge,
@@ -144,12 +148,14 @@ import {
 
 function Screen() {
   const webViewRef = useRef<WebView>(null);
-  const { transport, dispatch } = useBridge((data) => {
-    webViewRef.current?.postMessage(data);
+  const { transport, dispatch } = useBridge({
+    send: (data) => {
+      webViewRef.current?.postMessage(data);
+    },
   });
 
-  useBridgeHandler(contract, handlers, transport);
-  const client = useBridgeClient(contract, transport);
+  useBridgeHandler({ contract, transport, handlers });
+  const client = useBridgeClient({ contract, transport });
 
   return (
     <WebView
@@ -259,16 +265,16 @@ Built-in transports:
 
 | Export | Description |
 |--------|-------------|
-| `useBridgeClient(contract, transport?)` | Memoized client (defaults to `webViewTransport`) |
-| `useBridgeHandler(contract, handlers, transport?)` | Subscribe and handle messages |
+| `useBridgeClient({ contract, transport?, options? })` | Memoized client (defaults to `webViewTransport`) |
+| `useBridgeHandler({ contract, transport?, handlers })` | Subscribe and handle messages |
 
 ### React Native Hooks (`@ratiojs/bridge/react-native`)
 
 | Export | Description |
 |--------|-------------|
-| `useBridge(send)` | Creates `{ transport, dispatch }` for WebView wiring |
-| `useBridgeClient(contract, transport)` | Memoized client |
-| `useBridgeHandler(contract, handlers, transport)` | Subscribe and handle messages |
+| `useBridge({ send })` | Creates `{ transport, dispatch }` for WebView wiring |
+| `useBridgeClient({ contract, transport, options? })` | Memoized client |
+| `useBridgeHandler({ contract, transport, handlers })` | Subscribe and handle messages |
 
 ## License
 

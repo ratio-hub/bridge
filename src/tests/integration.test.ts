@@ -1,6 +1,16 @@
 import { test, expect } from 'bun:test';
 import { z } from 'zod';
-import { bridge, createBridgeClient, createBridgeHandler, BridgeError, BridgeTimeoutError, BridgeValidationError } from '../index.ts';
+import {
+  bridge,
+  createBridgeClient,
+  createBridgeHandler,
+  dispose,
+  isProcedureNode,
+  isSubscriptionNode,
+  BridgeError,
+  BridgeTimeoutError,
+  BridgeValidationError,
+} from '../index.ts';
 import type { BridgeTransport } from '../transport.ts';
 
 // Mock transport: connects two sides via in-memory message passing
@@ -448,4 +458,332 @@ test('multiple concurrent procedure calls resolve independently', async () => {
     { value: 4 },
     { value: 6 },
   ]);
+});
+
+// ---- Subscription input validation surfaces (no longer silently swallowed) ----
+
+test('subscription input validation errors are surfaced via onSubscriptionError', async () => {
+  const base = bridge.base();
+  const contract = {
+    track: base.subscription.input(z.object({ event: z.string() })),
+  };
+
+  const [clientTransport, _handlerTransport] = createMockTransportPair();
+
+  let captured: { err: BridgeValidationError; path: string[] } | null = null;
+  const client = createBridgeClient(contract, clientTransport, {
+    onSubscriptionError: (err, path) => {
+      captured = { err, path };
+    },
+  });
+
+  client.track({ event: 42 as any });
+
+  // Validation happens in a microtask
+  await new Promise((r) => setTimeout(r, 5));
+
+  expect(captured).not.toBeNull();
+  expect(captured!.path).toEqual(['track']);
+  expect(captured!.err).toBeInstanceOf(BridgeValidationError);
+});
+
+// ---- Client-side output validation ----
+
+test('validateOutput: client rejects when response does not match output schema', async () => {
+  const base = bridge.base();
+  const contract = {
+    getUser: base.procedure
+      .input(z.object({ id: z.string() }))
+      .output(z.object({ name: z.string() }))
+      .timeout(5000),
+  };
+
+  const [clientTransport, handlerTransport] = createMockTransportPair();
+
+  // Rogue "handler" that returns a malformed response by bypassing createBridgeHandler.
+  handlerTransport.subscribe((raw) => {
+    const msg = JSON.parse(raw);
+    if (msg.type !== 'request') return;
+    handlerTransport.send(
+      JSON.stringify({
+        __bridge: 1,
+        id: msg.id,
+        type: 'response',
+        output: { name: 123 }, // wrong type
+      }),
+    );
+  });
+
+  const client = createBridgeClient(contract, clientTransport, { validateOutput: true });
+
+  try {
+    await client.getUser({ id: '1' });
+    expect.unreachable('should have thrown');
+  } catch (err) {
+    expect(err).toBeInstanceOf(BridgeValidationError);
+  }
+});
+
+test('validateOutput: when disabled, client trusts the response', async () => {
+  const base = bridge.base();
+  const contract = {
+    getUser: base.procedure
+      .input(z.object({ id: z.string() }))
+      .output(z.object({ name: z.string() }))
+      .timeout(5000),
+  };
+
+  const [clientTransport, handlerTransport] = createMockTransportPair();
+
+  handlerTransport.subscribe((raw) => {
+    const msg = JSON.parse(raw);
+    if (msg.type !== 'request') return;
+    handlerTransport.send(
+      JSON.stringify({
+        __bridge: 1,
+        id: msg.id,
+        type: 'response',
+        output: { name: 123 }, // wrong type, but not validated
+      }),
+    );
+  });
+
+  const client = createBridgeClient(contract, clientTransport);
+  const result = await client.getUser({ id: '1' });
+  expect(result).toEqual({ name: 123 } as any);
+});
+
+// ---- BridgeTimeoutError preserves timeoutMs ----
+
+test('BridgeTimeoutError exposes timeoutMs', async () => {
+  const base = bridge.base();
+  const contract = {
+    slow: base.procedure
+      .input(z.object({ x: z.number() }))
+      .output(z.object({ y: z.number() }))
+      .timeout(42),
+  };
+
+  const [clientTransport] = createMockTransportPair();
+  const client = createBridgeClient(contract, clientTransport);
+
+  try {
+    await client.slow({ x: 1 });
+    expect.unreachable('should have thrown');
+  } catch (err) {
+    expect(err).toBeInstanceOf(BridgeTimeoutError);
+    expect((err as BridgeTimeoutError).timeoutMs).toBe(42);
+    expect((err as BridgeTimeoutError).path).toEqual(['slow']);
+  }
+});
+
+// ---- Request IDs are unique across many calls ----
+
+test('generated request IDs are unique', async () => {
+  const base = bridge.base();
+  const contract = {
+    echo: base.procedure
+      .input(z.object({ value: z.number() }))
+      .output(z.object({ value: z.number() }))
+      .timeout(5000),
+  };
+
+  const [clientTransport, handlerTransport] = createMockTransportPair();
+
+  const seenIds = new Set<string>();
+  handlerTransport.subscribe((raw) => {
+    const msg = JSON.parse(raw);
+    if (msg.type !== 'request') return;
+    seenIds.add(msg.id);
+    handlerTransport.send(
+      JSON.stringify({
+        __bridge: 1,
+        id: msg.id,
+        type: 'response',
+        output: { value: msg.input.value },
+      }),
+    );
+  });
+
+  const client = createBridgeClient(contract, clientTransport);
+
+  const calls = Array.from({ length: 200 }, (_, i) => client.echo({ value: i }));
+  await Promise.all(calls);
+
+  expect(seenIds.size).toBe(200);
+});
+
+// ---- dispose() cleanup ----
+
+test('dispose() unsubscribes the transport and rejects pending calls', async () => {
+  const base = bridge.base();
+  const contract = {
+    slow: base.procedure
+      .input(z.object({ x: z.number() }))
+      .output(z.object({ x: z.number() }))
+      .timeout(5000),
+  };
+
+  const [clientTransport, handlerTransport] = createMockTransportPair();
+
+  // Intentionally never respond
+  let receivedCount = 0;
+  const unsubscribe = handlerTransport.subscribe(() => {
+    receivedCount += 1;
+  });
+
+  const client = createBridgeClient(contract, clientTransport);
+
+  const pending = client.slow({ x: 1 });
+  // Give the message a tick to propagate
+  await new Promise((r) => setTimeout(r, 5));
+  expect(receivedCount).toBe(1);
+
+  dispose(client);
+
+  // Pending call should reject
+  await expect(pending).rejects.toBeInstanceOf(BridgeError);
+
+  // After dispose, further messages to the client transport should no longer
+  // reach any client-side listener — verify by sending a bogus response that
+  // would otherwise be picked up.
+  handlerTransport.send(
+    JSON.stringify({
+      __bridge: 1,
+      id: 'nonexistent',
+      type: 'response',
+      output: {},
+    }),
+  );
+  // No assertion needed — we're just confirming no crash / no unhandled rejection.
+
+  unsubscribe();
+});
+
+test('dispose() is idempotent', () => {
+  const base = bridge.base();
+  const contract = {
+    ping: base.procedure.output(z.object({ ok: z.boolean() })),
+  };
+  const [clientTransport] = createMockTransportPair();
+  const client = createBridgeClient(contract, clientTransport);
+
+  expect(() => {
+    dispose(client);
+    dispose(client);
+  }).not.toThrow();
+});
+
+// ---- kind/contract-type mismatch guard ----
+
+test('handler rejects procedure request against a subscription contract node', async () => {
+  const base = bridge.base();
+  const contract = {
+    notify: base.subscription.input(z.object({ msg: z.string() })),
+  };
+
+  const [clientTransport, handlerTransport] = createMockTransportPair();
+
+  const handler = createBridgeHandler(
+    contract,
+    {
+      notify: () => {},
+    },
+    (data) => handlerTransport.send(data),
+  );
+  handlerTransport.subscribe((data) => handler.handleMessage(data));
+
+  // Capture the error response
+  const errorPromise = new Promise<unknown>((resolve) => {
+    clientTransport.subscribe((raw) => {
+      const parsed = JSON.parse(raw);
+      if (parsed.type === 'error') resolve(parsed);
+    });
+  });
+
+  // Manually send a procedure request to a subscription path
+  clientTransport.send(
+    JSON.stringify({
+      __bridge: 1,
+      id: 'test-mismatch',
+      type: 'request',
+      kind: 'procedure',
+      path: ['notify'],
+      input: { msg: 'hi' },
+    }),
+  );
+
+  const err = (await errorPromise) as { error: { code: string } };
+  expect(err.error.code).toBe('KIND_MISMATCH');
+});
+
+// ---- subscription handler-side validation logs warning ----
+
+test('handler warns when subscription input validation fails', async () => {
+  const base = bridge.base();
+  const contract = {
+    notify: base.subscription.input(z.object({ msg: z.string() })),
+  };
+
+  const [clientTransport, handlerTransport] = createMockTransportPair();
+  let called = false;
+  const handler = createBridgeHandler(
+    contract,
+    {
+      notify: () => {
+        called = true;
+      },
+    },
+    (data) => handlerTransport.send(data),
+  );
+  handlerTransport.subscribe((data) => handler.handleMessage(data));
+
+  const originalWarn = console.warn;
+  const warnings: unknown[][] = [];
+  console.warn = (...args: unknown[]) => {
+    warnings.push(args);
+  };
+
+  try {
+    // Send a subscription with an invalid input (number instead of string)
+    clientTransport.send(
+      JSON.stringify({
+        __bridge: 1,
+        id: 'sub-invalid',
+        type: 'request',
+        kind: 'subscription',
+        path: ['notify'],
+        input: { msg: 42 },
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(called).toBe(false);
+    expect(warnings.length).toBeGreaterThan(0);
+    expect(String(warnings[0]?.[0])).toContain('Subscription');
+  } finally {
+    console.warn = originalWarn;
+  }
+});
+
+// ---- isProcedureNode / isSubscriptionNode guards ----
+
+test('isProcedureNode / isSubscriptionNode narrow contract nodes correctly', () => {
+  const base = bridge.base();
+  const proc = base.procedure
+    .input(z.object({ x: z.number() }))
+    .output(z.object({ x: z.number() }));
+  const sub = base.subscription.input(z.object({ msg: z.string() }));
+
+  expect(isProcedureNode(proc)).toBe(true);
+  expect(isSubscriptionNode(proc)).toBe(false);
+
+  expect(isSubscriptionNode(sub)).toBe(true);
+  expect(isProcedureNode(sub)).toBe(false);
+
+  // Non-nodes
+  expect(isProcedureNode({})).toBe(false);
+  expect(isSubscriptionNode({})).toBe(false);
+  expect(isProcedureNode(null)).toBe(false);
+  expect(isSubscriptionNode(undefined)).toBe(false);
 });

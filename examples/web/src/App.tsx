@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
-import { useBridgeClient, useBridgeHandler } from '@ratio-hub/bridge/react';
-import { nativeContract, webContract } from '@ratio-hub/bridge-example-shared';
-import type { InferHandlers } from '@ratio-hub/bridge';
+import { useBridgeClient, useBridgeHandler } from '@ratiojs/bridge/react';
+import { nativeContract, webContract } from '@ratiojs/bridge-example-shared';
+import type { InferHandlers } from '@ratiojs/bridge';
 import { Counter } from './components/Counter';
 import { DeviceInfo } from './components/DeviceInfo';
 import { HapticButton } from './components/HapticButton';
@@ -25,7 +25,7 @@ declare global {
 let notifId = 0;
 
 export default function App() {
-  const native = useBridgeClient(nativeContract);
+  const native = useBridgeClient({ contract: nativeContract });
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const dismissNotification = useCallback((id: number) => {
@@ -59,12 +59,12 @@ export default function App() {
     [dismissNotification],
   );
 
-  useBridgeHandler(webContract, webHandlers);
+  useBridgeHandler({ contract: webContract, handlers: webHandlers });
 
   return (
     <div className="app">
       <NotificationBanner notifications={notifications} />
-      <h1>@ratio-hub/bridge demo</h1>
+      <h1>@ratiojs/bridge demo</h1>
       <DeviceInfo native={native} />
       <Counter native={native} />
       <TabsDemo native={native} />

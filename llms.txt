@@ -107,17 +107,17 @@ const wsTransport: BridgeTransport = {
 
 ```ts
 import { useBridgeClient, useBridgeHandler } from '@ratiojs/bridge/react';
-const client = useBridgeClient(contract); // defaults to webViewTransport
-useBridgeHandler(contract, handlers);
+const client = useBridgeClient({ contract }); // defaults to webViewTransport
+useBridgeHandler({ contract, handlers }); // pass transport in the object when needed
 ```
 
 ### React Native hooks
 
 ```ts
 import { useBridge, useBridgeClient, useBridgeHandler } from '@ratiojs/bridge/react-native';
-const { transport, dispatch } = useBridge((data) => webViewRef.current?.postMessage(data));
-useBridgeHandler(contract, handlers, transport);
-const client = useBridgeClient(contract, transport);
+const { transport, dispatch } = useBridge({ send: (data) => webViewRef.current?.postMessage(data) });
+useBridgeHandler({ contract, transport, handlers });
+const client = useBridgeClient({ contract, transport });
 // Wire dispatch to WebView's onMessage
 ```
 

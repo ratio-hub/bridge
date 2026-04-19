@@ -71,13 +71,18 @@ export type ContractTree = { [key: string]: ContractNode | ContractTree };
 
 // Check if a value is a contract leaf node
 export function isContractNode(value: unknown): value is ContractNode {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    PROCEDURE_TYPE in value &&
-    ((value as any)[PROCEDURE_TYPE] === 'procedure' ||
-      (value as any)[PROCEDURE_TYPE] === 'subscription')
-  );
+  if (typeof value !== 'object' || value === null) return false;
+  if (!(PROCEDURE_TYPE in value)) return false;
+  const type = (value as { [PROCEDURE_TYPE]: unknown })[PROCEDURE_TYPE];
+  return type === 'procedure' || type === 'subscription';
+}
+
+export function isProcedureNode(value: unknown): value is ProcedureDefFields {
+  return isContractNode(value) && value[PROCEDURE_TYPE] === 'procedure';
+}
+
+export function isSubscriptionNode(value: unknown): value is SubscriptionDefFields {
+  return isContractNode(value) && value[PROCEDURE_TYPE] === 'subscription';
 }
 
 // Wire protocol types
@@ -110,13 +115,9 @@ export type BridgeMessage =
   | BridgeErrorMessage;
 
 export function isBridgeMessage(value: unknown): value is BridgeMessage {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    (value as any).__bridge === 1 &&
-    typeof (value as any).id === 'string' &&
-    typeof (value as any).type === 'string'
-  );
+  if (typeof value !== 'object' || value === null) return false;
+  const m = value as { __bridge?: unknown; id?: unknown; type?: unknown };
+  return m.__bridge === 1 && typeof m.id === 'string' && typeof m.type === 'string';
 }
 
 // Error type inference from contract errors
