@@ -114,21 +114,29 @@ import { useBridgeClient, useBridgeHandler } from '@ratiojs/bridge/react';
 
 // As a client (calling native)
 function App() {
-  const client = useBridgeClient(contract);
+  const client = useBridgeClient({ contract });
   // client.greet({ name: 'World' }) → Promise<{ message: string }>
 }
 
 // As a handler (responding to native)
 function App() {
-  useBridgeHandler(contract, {
-    onButtonPress: ({ input }) => {
-      console.log('Button pressed:', input.buttonId);
+  useBridgeHandler({
+    contract,
+    handlers: {
+      onButtonPress: ({ input }) => {
+        console.log('Button pressed:', input.buttonId);
+      },
     },
   });
 }
 ```
 
-The web hooks default to `webViewTransport()` (uses `window.ReactNativeWebView.postMessage` + `message` event listener). Pass a custom transport as the last argument to override.
+The web hooks default to `webViewTransport()` (uses `window.ReactNativeWebView.postMessage` and listens for `message` events on both `window` and `document` so the same code works on iOS and Android RN WebViews). Pass a `transport` field to override.
+
+Notes (3.0+):
+- Hooks accept param objects — `useBridgeClient({ contract, transport? })`, `useBridgeHandler({ contract, handlers, transport? })`.
+- `handlers` is wrapped in a ref-stable proxy, so inline handler objects don't re-subscribe every render.
+- The client is lazy-init'd in a ref so it survives React 18+ StrictMode's synchronous effect cleanup-then-remount. There's no auto-dispose on unmount.
 
 ## React Native Hooks
 
@@ -144,12 +152,12 @@ import {
 
 function Screen() {
   const webViewRef = useRef<WebView>(null);
-  const { transport, dispatch } = useBridge((data) => {
-    webViewRef.current?.postMessage(data);
+  const { transport, dispatch } = useBridge({
+    send: (data) => webViewRef.current?.postMessage(data),
   });
 
-  useBridgeHandler(contract, handlers, transport);
-  const client = useBridgeClient(contract, transport);
+  useBridgeHandler({ contract, transport, handlers });
+  const client = useBridgeClient({ contract, transport });
 
   return (
     <WebView
@@ -221,8 +229,10 @@ const wsTransport: BridgeTransport = {
 
 Built-in transports:
 
-- **`webViewTransport()`** — for web code inside a React Native WebView
-- **`iframeTransport(target, origin?)`** — for cross-iframe communication
+- **`webViewTransport()`** — for web code inside a React Native WebView. Listens on both `window` (iOS) and `document` (Android) so the same code runs on either platform without detection.
+- **`iframeTransport(target, origin?)`** — for cross-iframe communication.
+
+Both built-ins are SSR-safe: every `window`/`document` access is guarded by `isClient()` (a `typeof window` check), so importing them on the server is a no-op rather than a `ReferenceError`. `isClient` is exported at the package root for consumers that need the same check.
 
 ## API Reference
 
@@ -238,8 +248,9 @@ Built-in transports:
 | `BridgeValidationError` | Validation error with `issues` |
 | `SubscriptionQueue` | FIFO queue for subscription processing |
 | `validate(schema, value)` | Standard Schema validation helper |
-| `webViewTransport()` | WebView ↔ React Native transport |
+| `webViewTransport()` | WebView ↔ React Native transport (iOS + Android) |
 | `iframeTransport(target, origin?)` | iframe ↔ parent transport |
+| `isClient()` | `typeof window !== 'undefined'` — SSR-safe check |
 
 ### Types
 
@@ -259,16 +270,16 @@ Built-in transports:
 
 | Export | Description |
 |--------|-------------|
-| `useBridgeClient(contract, transport?)` | Memoized client (defaults to `webViewTransport`) |
-| `useBridgeHandler(contract, handlers, transport?)` | Subscribe and handle messages |
+| `useBridgeClient({ contract, transport? })` | Lazy-init'd client (defaults to `webViewTransport`) |
+| `useBridgeHandler({ contract, handlers, transport? })` | Subscribe and handle messages; ref-stable handler proxy |
 
 ### React Native Hooks (`@ratiojs/bridge/react-native`)
 
 | Export | Description |
 |--------|-------------|
-| `useBridge(send)` | Creates `{ transport, dispatch }` for WebView wiring |
-| `useBridgeClient(contract, transport)` | Memoized client |
-| `useBridgeHandler(contract, handlers, transport)` | Subscribe and handle messages |
+| `useBridge({ send })` | Creates `{ transport, dispatch }` for WebView wiring |
+| `useBridgeClient({ contract, transport })` | Lazy-init'd client |
+| `useBridgeHandler({ contract, handlers, transport })` | Subscribe and handle messages; ref-stable handler proxy |
 
 ## License
 

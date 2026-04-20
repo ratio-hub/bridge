@@ -23,8 +23,10 @@ src/
   types.ts          — StandardSchemaV1, wire protocol types, type inference utilities
   schema.ts         — validate() using ~standard.validate() interface
   queue.ts          — SubscriptionQueue — FIFO per-path, error-resilient
+  utils.ts          — isClient() — SSR-safe `typeof window` check
   react/index.ts    — useBridgeClient, useBridgeHandler (web side, defaults to webViewTransport)
   react-native/index.ts — useBridge, useBridgeClient, useBridgeHandler (native side)
+  internal/handler-proxy.ts — ref-stable handler proxy used by the React hooks
 ```
 
 ## Common Patterns
@@ -107,19 +109,26 @@ const wsTransport: BridgeTransport = {
 
 ```ts
 import { useBridgeClient, useBridgeHandler } from '@ratiojs/bridge/react';
-const client = useBridgeClient(contract); // defaults to webViewTransport
-useBridgeHandler(contract, handlers);
+const client = useBridgeClient({ contract }); // defaults to webViewTransport
+useBridgeHandler({ contract, handlers });
 ```
 
 ### React Native hooks
 
 ```ts
 import { useBridge, useBridgeClient, useBridgeHandler } from '@ratiojs/bridge/react-native';
-const { transport, dispatch } = useBridge((data) => webViewRef.current?.postMessage(data));
-useBridgeHandler(contract, handlers, transport);
-const client = useBridgeClient(contract, transport);
+const { transport, dispatch } = useBridge({
+  send: (data) => webViewRef.current?.postMessage(data),
+});
+useBridgeHandler({ contract, transport, handlers });
+const client = useBridgeClient({ contract, transport });
 // Wire dispatch to WebView's onMessage
 ```
+
+Hooks take param objects (3.0+). `handlers` is held in a ref-stable proxy, so
+inline handler objects don't cause re-subscriptions. `useBridgeClient` lazy-inits
+the client in a ref so it survives React 18+ StrictMode's synchronous effect
+cleanup-then-remount; no auto-dispose.
 
 ## Wire Protocol
 
@@ -134,3 +143,17 @@ Messages are JSON strings with `{ __bridge: 1, id, type }`:
 - `BridgeError(code, data)` — application error, sent over the wire
 - `BridgeTimeoutError(path, timeoutMs)` — procedure timeout
 - `BridgeValidationError(message, issues)` — schema validation failure
+
+## SSR
+
+`webViewTransport()` and `iframeTransport()` guard every `window`/`document`
+access with `isClient()` (`typeof window !== 'undefined'`), so importing them
+on the server is safe — they no-op until hydrated. `isClient` is exported for
+consumers who need the same check.
+
+## Platform notes
+
+React Native WebView dispatches native→web messages on different DOM targets
+per platform: iOS fires on `window`, Android fires on `document`.
+`webViewTransport()` subscribes to both so the same web code runs everywhere
+without platform detection.
