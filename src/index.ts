@@ -7,7 +7,6 @@ export { SubscriptionQueue } from './queue.ts';
 export { validate } from './schema.ts';
 export { webViewTransport, iframeTransport } from './transport.ts';
 export type { BridgeTransport } from './transport.ts';
-export { isClient } from './utils.ts';
 export { isContractNode, isProcedureNode, isSubscriptionNode } from './types.ts';
 export type {
   StandardSchemaV1,
