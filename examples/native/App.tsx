@@ -157,6 +157,19 @@ export default function App() {
           return { success: true };
         },
       },
+      async: {
+        resolve: ({ input }) => {
+          addLog(`async.resolve → "${input.label}" (waiting 2s)`);
+          const startedAt = Date.now();
+          return new Promise<{ label: string; elapsedMs: number }>((resolve) => {
+            setTimeout(() => {
+              const elapsedMs = Date.now() - startedAt;
+              addLog(`async.resolve → resolved after ${elapsedMs}ms`);
+              resolve({ label: input.label, elapsedMs });
+            }, 2000);
+          });
+        },
+      },
     }),
     [addLog],
   );

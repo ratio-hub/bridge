@@ -21,8 +21,18 @@ declare const window: {
   removeEventListener(event: 'message', handler: MessageListener): void;
 };
 
+declare const document: {
+  addEventListener(event: 'message', handler: MessageListener): void;
+  removeEventListener(event: 'message', handler: MessageListener): void;
+};
+
 const NOOP = (): void => {};
 
+// React Native WebView dispatches native→web messages on different targets per
+// platform: iOS fires on `window`, Android fires on `document`. Listening on
+// both keeps the transport platform-agnostic without needing runtime platform
+// detection. In a normal browser/iframe only `window` receives `message`
+// events, so the `document` listener is a harmless no-op there.
 export function webViewTransport(): BridgeTransport {
   return {
     send(data) {
@@ -37,7 +47,11 @@ export function webViewTransport(): BridgeTransport {
         }
       };
       window.addEventListener('message', listener);
-      return () => window.removeEventListener('message', listener);
+      document.addEventListener('message', listener);
+      return () => {
+        window.removeEventListener('message', listener);
+        document.removeEventListener('message', listener);
+      };
     },
   };
 }

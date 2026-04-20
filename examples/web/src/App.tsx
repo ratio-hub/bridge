@@ -10,6 +10,7 @@ import { ModalDemo } from './components/ModalDemo';
 import { ModalTimeoutDemo } from './components/ModalTimeoutDemo';
 import { TabsDemo } from './components/TabsDemo';
 import { ErrorDemo } from './components/ErrorDemo';
+import { AsyncDemo } from './components/AsyncDemo';
 import {
   NotificationBanner,
   type Notification,
@@ -73,6 +74,7 @@ export default function App() {
       <ModalDemo native={native} />
       <ModalTimeoutDemo native={native} />
       <ErrorDemo native={native} />
+      <AsyncDemo native={native} />
     </div>
   );
 }

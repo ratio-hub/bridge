@@ -70,6 +70,12 @@ export const nativeContract = {
       .output(z.object({ success: z.boolean() }))
       .timeout(5000),
   },
+  async: {
+    resolve: b.procedure
+      .input(z.object({ label: z.string() }))
+      .output(z.object({ label: z.string(), elapsedMs: z.number() }))
+      .timeout(5000),
+  },
 };
 
 /**
