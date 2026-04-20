@@ -1,3 +1,5 @@
+import { isClient } from './utils.ts';
+
 export interface BridgeTransport {
   send(data: string): void;
   subscribe(handler: (data: string) => void): () => void;
@@ -13,23 +15,22 @@ interface MessageLikeEvent {
 
 type MessageListener = (event: MessageLikeEvent) => void;
 
-declare const window:
-  | {
-      readonly ReactNativeWebView?: { postMessage(data: string): void };
-      addEventListener(event: 'message', handler: MessageListener): void;
-      removeEventListener(event: 'message', handler: MessageListener): void;
-    }
-  | undefined;
+declare const window: {
+  readonly ReactNativeWebView?: { postMessage(data: string): void };
+  addEventListener(event: 'message', handler: MessageListener): void;
+  removeEventListener(event: 'message', handler: MessageListener): void;
+};
 
 const NOOP = (): void => {};
 
 export function webViewTransport(): BridgeTransport {
   return {
     send(data) {
-      window?.ReactNativeWebView?.postMessage(data);
+      if (!isClient()) return;
+      window.ReactNativeWebView?.postMessage(data);
     },
     subscribe(handler) {
-      if (!window) return NOOP;
+      if (!isClient()) return NOOP;
       const listener: MessageListener = (event) => {
         if (typeof event.data === 'string') {
           handler(event.data);
@@ -50,7 +51,7 @@ export function iframeTransport(
       target.postMessage(data, origin);
     },
     subscribe(handler) {
-      if (!window) return NOOP;
+      if (!isClient()) return NOOP;
       const listener: MessageListener = (event) => {
         if (origin !== '*' && event.origin !== origin) return;
         if (typeof event.data === 'string') {
