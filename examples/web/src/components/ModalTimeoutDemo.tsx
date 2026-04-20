@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { BridgeTimeoutError } from '@ratiojs/bridge';
-import type { InferClient } from '@ratiojs/bridge';
-import type { nativeContract } from '@ratiojs/bridge-example-shared';
+import { BridgeTimeoutError } from '@ratio-hub/bridge';
+import type { InferClient } from '@ratio-hub/bridge';
+import type { nativeContract } from '@ratio-hub/bridge-example-shared';
 
 type NativeClient = InferClient<typeof nativeContract>;
 

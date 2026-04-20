@@ -79,13 +79,8 @@ export class BaseBuilder<
   errors<E extends Record<string, StandardSchemaV1>>(
     errorSchemas: E,
   ): BaseBuilder<TErrors extends undefined ? E : TErrors & E> {
-    // The conditional return type models two runtime shapes in one signature:
-    // when `TErrors` is undefined the spread evaluates to `E`, otherwise it's
-    // `TErrors & E`. TypeScript can't verify the spread produces the conditional,
-    // so we assert the result once at the boundary.
-    type Merged = TErrors extends undefined ? E : TErrors & E;
-    const merged = { ...this._errors, ...errorSchemas } as unknown as Merged;
-    return new BaseBuilder<Merged>(merged);
+    const merged = { ...this._errors, ...errorSchemas } as any;
+    return new BaseBuilder(merged);
   }
 
   get procedure(): ProcedureDef<undefined, undefined, TErrors, undefined> {

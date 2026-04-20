@@ -4,8 +4,8 @@
     "strict": true,
     "skipLibCheck": true,
     "paths": {
-      "@ratiojs/bridge": ["../../src/index.ts"],
-      "@ratiojs/bridge/*": ["../../src/*/index.ts"]
+      "@ratio-hub/bridge": ["../../src/index.ts"],
+      "@ratio-hub/bridge/*": ["../../src/*/index.ts"]
     },
     "allowImportingTsExtensions": true,
     "noEmit": true

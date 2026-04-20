@@ -10,8 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@ratiojs/bridge": "file:../../",
-    "@ratiojs/bridge-example-shared": "workspace:*",
+    "@ratio/bridge": "file:../../",
+    "@ratio/bridge-example-shared": "workspace:*",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "zod": "^3.24"

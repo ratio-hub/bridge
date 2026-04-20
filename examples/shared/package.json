@@ -1,12 +1,12 @@
 {
-  "name": "@ratiojs/bridge-example-shared",
+  "name": "@ratio/bridge-example-shared",
   "private": true,
   "type": "module",
   "exports": {
     ".": "./contract.ts"
   },
   "dependencies": {
-    "@ratiojs/bridge": "file:../../",
+    "@ratio/bridge": "file:../../",
     "zod": "^3.24"
   }
 }

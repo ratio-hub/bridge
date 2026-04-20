@@ -3,10 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "@ratiojs/bridge",
-      "dependencies": {
-        "nanoid": "^5.1.9",
-      },
+      "name": "@ratio-hub/bridge",
       "devDependencies": {
         "@types/bun": "latest",
         "@types/react": "^19",
@@ -28,8 +25,8 @@
       "name": "native",
       "version": "1.0.0",
       "dependencies": {
-        "@ratiojs/bridge": "file:../../",
-        "@ratiojs/bridge-example-shared": "workspace:*",
+        "@ratio/bridge": "file:../../",
+        "@ratio/bridge-example-shared": "workspace:*",
         "expo": "~54.0.33",
         "expo-haptics": "~15.0.8",
         "expo-status-bar": "~3.0.9",
@@ -45,9 +42,9 @@
       },
     },
     "examples/shared": {
-      "name": "@ratiojs/bridge-example-shared",
+      "name": "@ratio/bridge-example-shared",
       "dependencies": {
-        "@ratiojs/bridge": "file:../../",
+        "@ratio/bridge": "file:../../",
         "zod": "^3.24",
       },
     },
@@ -55,8 +52,8 @@
       "name": "web",
       "version": "0.0.0",
       "dependencies": {
-        "@ratiojs/bridge": "file:../../",
-        "@ratiojs/bridge-example-shared": "workspace:*",
+        "@ratio/bridge": "file:../../",
+        "@ratio/bridge-example-shared": "workspace:*",
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
         "zod": "^3.24",
@@ -428,9 +425,9 @@
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
-    "@ratiojs/bridge": ["@ratiojs/bridge@root:", {}],
+    "@ratio/bridge": ["@ratio-hub/bridge@root:", {}],
 
-    "@ratiojs/bridge-example-shared": ["@ratiojs/bridge-example-shared@workspace:examples/shared"],
+    "@ratio/bridge-example-shared": ["@ratio/bridge-example-shared@workspace:examples/shared"],
 
     "@react-native/assets-registry": ["@react-native/assets-registry@0.81.5", "", {}, "sha512-705B6x/5Kxm1RKRvSv0ADYWm5JOnoiQ1ufW7h8uu2E6G9Of/eE6hP/Ivw3U5jI16ERqZxiKQwk34VJbB0niX9w=="],
 
@@ -1060,7 +1057,7 @@
 
     "mz": ["mz@2.7.0", "", { "dependencies": { "any-promise": "^1.0.0", "object-assign": "^4.0.1", "thenify-all": "^1.0.0" } }, "sha512-z81GNO7nnYMEhrGh9LeymoE4+Yr0Wn5McHIZMK5cfQCl+NDX08sCZgUc9/6MHni9IWuFLm1Z3HTCXu2z9fN62Q=="],
 
-    "nanoid": ["nanoid@5.1.9", "", { "bin": { "nanoid": "bin/nanoid.js" } }, "sha512-ZUvP7KeBLe3OZ1ypw6dI/TzYJuvHP77IM4Ry73waSQTLn8/g8rpdjfyVAh7t1/+FjBtG4lCP42MEbDxOsRpBMw=="],
+    "nanoid": ["nanoid@3.3.11", "", { "bin": { "nanoid": "bin/nanoid.cjs" } }, "sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w=="],
 
     "native": ["native@workspace:examples/native"],
 
@@ -1552,8 +1549,6 @@
 
     "path-scurry/lru-cache": ["lru-cache@11.2.5", "", {}, "sha512-vFrFJkWtJvJnD5hg+hJvVE8Lh/TcMzKnTgCWmtBipwI5yLX/iX+5UB2tfuyODF5E7k9xEzMdYgGqaSb1c0c5Yw=="],
 
-    "postcss/nanoid": ["nanoid@3.3.11", "", { "bin": { "nanoid": "bin/nanoid.cjs" } }, "sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w=="],
-
     "rc/strip-json-comments": ["strip-json-comments@2.0.1", "", {}, "sha512-4gB8na07fecVVkOI6Rs4e7T6NOTki5EmL7TUduTs6bu3EdnSycntVJ4re8kgZA+wx9IueI2Y11bfbgwtzuE0KQ=="],
 
     "react-devtools-core/ws": ["ws@7.5.10", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": "^5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-+dbF1tHwZpXcbOJdVOkzLDxZP1ailvSxM6ZweXTegylPny803bFhA+vqBYw4s31NSAk4S2Qz+AKXK9a4wkdjcQ=="],
@@ -1603,8 +1598,6 @@
     "@expo/metro-config/hermes-parser/hermes-estree": ["hermes-estree@0.29.1", "", {}, "sha512-jl+x31n4/w+wEqm0I2r4CMimukLbLQEYpisys5oCre611CI5fc9TxhqkBBCJ1edDG4Kza0f7CgNz8xVMLZQOmQ=="],
 
     "@expo/metro-config/minimatch/brace-expansion": ["brace-expansion@2.0.2", "", { "dependencies": { "balanced-match": "^1.0.0" } }, "sha512-Jt0vHyM+jmUBqojB7E1NIYadt0vI0Qxjxd2TErW94wDz+E2LAm5vKMXXwg6ZZBTHPuUlDgQHKXvjGBdfcF1ZDQ=="],
-
-    "@expo/metro-config/postcss/nanoid": ["nanoid@3.3.11", "", { "bin": { "nanoid": "bin/nanoid.cjs" } }, "sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w=="],
 
     "@istanbuljs/load-nyc-config/find-up/locate-path": ["locate-path@5.0.0", "", { "dependencies": { "p-locate": "^4.1.0" } }, "sha512-t7hw9pI+WvuwNJXwk5zVHpyhIqzg2qTlklJOf0mVxGSbe3Fp2VieZcduNYjaLDoy6p9uGpQEGWG87WpMKlNq8g=="],
 

@@ -10,14 +10,14 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { WebView } from "react-native-webview";
-import { nativeContract, webContract } from "@ratiojs/bridge-example-shared";
-import { BridgeError } from "@ratiojs/bridge";
-import type { InferHandlers } from "@ratiojs/bridge";
+import { nativeContract, webContract } from "@ratio-hub/bridge-example-shared";
+import { BridgeError } from "@ratio-hub/bridge";
+import type { InferHandlers } from "@ratio-hub/bridge";
 import {
   useBridge,
   useBridgeHandler,
   useBridgeClient,
-} from "@ratiojs/bridge/react-native";
+} from "@ratio-hub/bridge/react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 const WEB_URL = Platform.select({
@@ -162,16 +162,12 @@ export default function App() {
   );
 
   const webViewRef = useRef<WebView>(null);
-  const { transport, dispatch } = useBridge({
-    send: (data) => webViewRef.current?.postMessage(data),
-  });
+  const { transport, dispatch } = useBridge((data) =>
+    webViewRef.current?.postMessage(data),
+  );
 
-  useBridgeHandler({
-    contract: nativeContract,
-    transport,
-    handlers: nativeHandlers,
-  });
-  const client = useBridgeClient({ contract: webContract, transport });
+  useBridgeHandler(nativeContract, nativeHandlers, transport);
+  const client = useBridgeClient(webContract, transport);
 
   const handleLoad = useCallback(() => {
     setTimeout(async () => {
