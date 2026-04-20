@@ -1,4 +1,4 @@
-import { bridge } from '@ratio/bridge';
+import { bridge } from '@ratiojs/bridge';
 import { z } from 'zod';
 
 const b = bridge.base();

@@ -2,8 +2,6 @@ import {
   type ContractTree,
   type ContractNode,
   type InferClient,
-  type BridgeResponseMessage,
-  type BridgeErrorMessage,
   isContractNode,
   isBridgeMessage,
   PROCEDURE_TYPE,
@@ -19,11 +17,13 @@ function generateId(): string {
   return `bridge_${Date.now()}_${++idCounter}`;
 }
 
+type WireError = { code: string; data: unknown };
+
 interface PendingRequest {
-  resolve: (value: any) => void;
-  reject: (error: any) => void;
+  resolve: (value: unknown) => void;
+  reject: (error: unknown) => void;
   timer: ReturnType<typeof setTimeout> | undefined;
-  onError: ((error: { code: string; data: unknown }) => void) | undefined;
+  onError: ((error: WireError) => void) | undefined;
 }
 
 export function createBridgeClient<T extends ContractTree>(
@@ -51,22 +51,22 @@ export function createBridgeClient<T extends ContractTree>(
     if (entry.timer) clearTimeout(entry.timer);
 
     if (parsed.type === 'response') {
-      entry.resolve((parsed as BridgeResponseMessage).output);
+      entry.resolve(parsed.output);
     } else {
-      const errMsg = parsed as BridgeErrorMessage;
+      const { error } = parsed;
       if (entry.onError) {
-        entry.onError(errMsg.error);
+        entry.onError(error);
         entry.resolve(undefined);
       } else {
-        entry.reject(new BridgeError(errMsg.error.code, errMsg.error.data));
+        entry.reject(new BridgeError(error.code, error.data));
       }
     }
   });
 
-  function buildClient(node: ContractTree | ContractNode, path: string[]): any {
+  function buildClient(node: ContractTree | ContractNode, path: string[]): unknown {
     if (isContractNode(node)) {
       if (node[PROCEDURE_TYPE] === 'subscription') {
-        return (input: unknown) => {
+        return (input: unknown): void => {
           const inputSchema = node[PROCEDURE_INPUT];
           if (inputSchema) {
             // Fire-and-forget: validate then send, no response tracking
@@ -98,8 +98,11 @@ export function createBridgeClient<T extends ContractTree>(
       }
 
       // Procedure
-      return (input: unknown, options?: { onError?: (error: any) => void }) => {
-        return new Promise(async (resolve, reject) => {
+      return (
+        input: unknown,
+        options?: { onError?: (error: WireError) => void },
+      ): Promise<unknown> => {
+        return new Promise<unknown>(async (resolve, reject) => {
           // Validate input
           const inputSchema = node[PROCEDURE_INPUT];
           if (inputSchema) {
@@ -145,9 +148,9 @@ export function createBridgeClient<T extends ContractTree>(
     }
 
     // Nested object — recurse
-    const obj: Record<string, any> = {};
-    for (const key of Object.keys(node as ContractTree)) {
-      obj[key] = buildClient((node as ContractTree)[key]!, [...path, key]);
+    const obj: Record<string, unknown> = {};
+    for (const key of Object.keys(node)) {
+      obj[key] = buildClient(node[key]!, [...path, key]);
     }
     return obj;
   }

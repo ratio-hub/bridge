@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { InferClient } from '@ratio-hub/bridge';
-import type { nativeContract } from '@ratio-hub/bridge-example-shared';
+import type { InferClient } from '@ratiojs/bridge';
+import type { nativeContract } from '@ratiojs/bridge-example-shared';
 
 type NativeClient = InferClient<typeof nativeContract>;
 

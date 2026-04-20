@@ -3,23 +3,34 @@ export interface BridgeTransport {
   subscribe(handler: (data: string) => void): () => void;
 }
 
-declare const window: {
-  ReactNativeWebView?: { postMessage(data: string): void };
-  addEventListener(event: string, handler: (e: any) => void): void;
-  removeEventListener(event: string, handler: (e: any) => void): void;
-  parent: any;
-  postMessage(data: any, origin: string): void;
-};
+// Minimal structural typing for the global `window` object. Declared locally so
+// this package can be consumed in both DOM and non-DOM TypeScript projects
+// without requiring `lib: ["dom"]`.
+interface MessageLikeEvent {
+  readonly data: unknown;
+  readonly origin?: string;
+}
+
+type MessageListener = (event: MessageLikeEvent) => void;
+
+declare const window:
+  | {
+      readonly ReactNativeWebView?: { postMessage(data: string): void };
+      addEventListener(event: 'message', handler: MessageListener): void;
+      removeEventListener(event: 'message', handler: MessageListener): void;
+    }
+  | undefined;
+
+const NOOP = (): void => {};
 
 export function webViewTransport(): BridgeTransport {
   return {
-    send(data: string) {
-      if (typeof window === 'undefined') return;
-      window.ReactNativeWebView?.postMessage(data);
+    send(data) {
+      window?.ReactNativeWebView?.postMessage(data);
     },
-    subscribe(handler: (data: string) => void) {
-      if (typeof window === 'undefined') return () => {};
-      const listener = (event: { data: string }) => {
+    subscribe(handler) {
+      if (!window) return NOOP;
+      const listener: MessageListener = (event) => {
         if (typeof event.data === 'string') {
           handler(event.data);
         }
@@ -31,23 +42,23 @@ export function webViewTransport(): BridgeTransport {
 }
 
 export function iframeTransport(
-  target: { postMessage(data: any, origin: string): void },
+  target: { postMessage(data: string, origin: string): void },
   origin: string = '*',
 ): BridgeTransport {
   return {
-    send(data: string) {
+    send(data) {
       target.postMessage(data, origin);
     },
-    subscribe(handler: (data: string) => void) {
-      const listener = (event: { data: unknown; origin: string }) => {
+    subscribe(handler) {
+      if (!window) return NOOP;
+      const listener: MessageListener = (event) => {
         if (origin !== '*' && event.origin !== origin) return;
         if (typeof event.data === 'string') {
           handler(event.data);
         }
       };
-      if (typeof window === 'undefined') return () => {};
-      window.addEventListener('message', listener as any);
-      return () => window.removeEventListener('message', listener as any);
+      window.addEventListener('message', listener);
+      return () => window.removeEventListener('message', listener);
     },
   };
 }

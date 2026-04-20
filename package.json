@@ -1,6 +1,6 @@
 {
   "name": "@ratiojs/bridge",
-  "version": "1.0.1",
+  "version": "3.0.0",
   "description": "Type-safe cross-WebView messaging with Standard Schema validation",
   "type": "module",
   "license": "MIT",

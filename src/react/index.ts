@@ -4,39 +4,60 @@ import { createBridgeClient } from '../client.ts';
 import { createBridgeHandler } from '../handler.ts';
 import { webViewTransport } from '../transport.ts';
 import type { BridgeTransport } from '../transport.ts';
+import { makeHandlerProxy } from '../internal/handler-proxy.ts';
+
+export interface UseBridgeClientParams<T extends ContractTree> {
+  contract: T;
+  transport?: BridgeTransport;
+}
+
+export interface UseBridgeHandlerParams<T extends ContractTree> {
+  contract: T;
+  transport?: BridgeTransport;
+  handlers: InferHandlers<T>;
+}
 
 export function useBridgeClient<T extends ContractTree>(
-  contract: T,
-  transport?: BridgeTransport,
+  params: UseBridgeClientParams<T>,
 ): InferClient<T> {
-  const transportRef = useRef(transport ?? webViewTransport());
+  const { contract, transport } = params;
 
-  const client = useMemo(
-    () => createBridgeClient(contract, transportRef.current),
-    [contract],
-  );
+  const activeTransport = useMemo(() => transport ?? webViewTransport(), [transport]);
 
-  return client as InferClient<T>;
+  // Lazy-init the client in a ref so it survives React 18+ StrictMode's
+  // synchronous effect cleanup-then-remount. Callers who need deterministic
+  // teardown can hold the returned client and dispose it themselves.
+  const clientRef = useRef<InferClient<T> | null>(null);
+  if (clientRef.current === null) {
+    clientRef.current = createBridgeClient(contract, activeTransport);
+  }
+
+  return clientRef.current;
 }
 
 export function useBridgeHandler<T extends ContractTree>(
-  contract: T,
-  handlers: InferHandlers<T>,
-  transport?: BridgeTransport,
+  params: UseBridgeHandlerParams<T>,
 ): void {
-  const transportRef = useRef(transport ?? webViewTransport());
+  const { contract, transport, handlers } = params;
+
+  // Keep the latest `handlers` in a ref so inline object literals don't trigger
+  // re-subscription on every render.
+  const handlersRef = useRef(handlers);
+  handlersRef.current = handlers;
+
+  const activeTransport = useMemo(() => transport ?? webViewTransport(), [transport]);
 
   useEffect(() => {
+    const proxyHandlers = makeHandlerProxy(contract, handlersRef);
+
     const bridgeHandler = createBridgeHandler(
       contract,
-      handlers,
-      (data) => transportRef.current.send(data),
+      proxyHandlers,
+      (data) => activeTransport.send(data),
     );
 
-    const unsub = transportRef.current.subscribe((data) => {
+    return activeTransport.subscribe((data) => {
       bridgeHandler.handleMessage(data);
     });
-
-    return unsub;
-  }, [contract, handlers]);
+  }, [contract, activeTransport]);
 }

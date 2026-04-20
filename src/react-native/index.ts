@@ -3,21 +3,55 @@ import type { ContractTree, InferClient, InferHandlers } from '../types.ts';
 import { createBridgeClient } from '../client.ts';
 import { createBridgeHandler } from '../handler.ts';
 import type { BridgeTransport } from '../transport.ts';
+import { makeHandlerProxy } from '../internal/handler-proxy.ts';
 
+export interface UseBridgeParams {
+  send: (data: string) => void;
+}
+
+export interface UseBridgeHandlerParams<T extends ContractTree> {
+  contract: T;
+  transport: BridgeTransport;
+  handlers: InferHandlers<T>;
+}
+
+export interface UseBridgeClientParams<T extends ContractTree> {
+  contract: T;
+  transport: BridgeTransport;
+}
+
+/**
+ * Creates a stable transport + dispatch pair for wiring into a React Native
+ * `<WebView />`.
+ *
+ * Usage:
+ * ```tsx
+ * const { transport, dispatch } = useBridge({
+ *   send: (data) => webViewRef.current?.postMessage(data),
+ * });
+ * // ...
+ * <WebView onMessage={(e) => dispatch(e.nativeEvent.data)} ... />
+ * ```
+ *
+ * Returns values whose identities are stable across renders so downstream hooks
+ * don't re-subscribe. The `send` callback is always called via a ref, so you can
+ * pass an inline arrow function without triggering re-subscription.
+ */
 export function useBridge(
-  send: (data: string) => void,
+  params: UseBridgeParams,
 ): { transport: BridgeTransport; dispatch: (data: string) => void } {
+  const { send } = params;
   const sendRef = useRef(send);
   sendRef.current = send;
 
-  const listenersRef = useRef(new Set<(data: string) => void>());
+  const listenersRef = useRef<Set<(data: string) => void>>(new Set());
 
   const transport = useMemo<BridgeTransport>(
     () => ({
-      send(data: string) {
+      send(data) {
         sendRef.current(data);
       },
-      subscribe(handler: (data: string) => void) {
+      subscribe(handler) {
         listenersRef.current.add(handler);
         return () => {
           listenersRef.current.delete(handler);
@@ -40,33 +74,39 @@ export function useBridge(
 }
 
 export function useBridgeHandler<T extends ContractTree>(
-  contract: T,
-  handlers: InferHandlers<T>,
-  transport: BridgeTransport,
+  params: UseBridgeHandlerParams<T>,
 ): void {
+  const { contract, transport, handlers } = params;
+
+  const handlersRef = useRef(handlers);
+  handlersRef.current = handlers;
+
   useEffect(() => {
+    const proxyHandlers = makeHandlerProxy(contract, handlersRef);
+
     const bridgeHandler = createBridgeHandler(
       contract,
-      handlers,
+      proxyHandlers,
       (data) => transport.send(data),
     );
 
-    const unsub = transport.subscribe((data) => {
+    return transport.subscribe((data) => {
       bridgeHandler.handleMessage(data);
     });
-
-    return unsub;
-  }, [contract, handlers, transport]);
+  }, [contract, transport]);
 }
 
 export function useBridgeClient<T extends ContractTree>(
-  contract: T,
-  transport: BridgeTransport,
+  params: UseBridgeClientParams<T>,
 ): InferClient<T> {
-  const client = useMemo(
-    () => createBridgeClient(contract, transport),
-    [contract, transport],
-  );
+  const { contract, transport } = params;
 
-  return client as InferClient<T>;
+  // Lazy-init via a ref so the client survives React 18+ StrictMode's
+  // synchronous effect cleanup-then-remount.
+  const clientRef = useRef<InferClient<T> | null>(null);
+  if (clientRef.current === null) {
+    clientRef.current = createBridgeClient(contract, transport);
+  }
+
+  return clientRef.current;
 }

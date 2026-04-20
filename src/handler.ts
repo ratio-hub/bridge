@@ -15,11 +15,13 @@ import { BridgeError, BridgeValidationError } from './errors.ts';
 import { validate } from './schema.ts';
 import { SubscriptionQueue } from './queue.ts';
 
-function walkPath(obj: any, path: string[]): any {
-  let current = obj;
+type HandlerFn = (opts: { input: unknown }) => unknown;
+
+function walkPath(obj: unknown, path: string[]): unknown {
+  let current: unknown = obj;
   for (const key of path) {
     if (current == null || typeof current !== 'object') return undefined;
-    current = current[key];
+    current = (current as Record<string, unknown>)[key];
   }
   return current;
 }
@@ -45,10 +47,10 @@ export function createBridgeHandler<T extends ContractTree>(
   }
 
   async function processRequest(msg: BridgeRequestMessage): Promise<void> {
-    const node = walkPath(contract, msg.path) as ContractNode | undefined;
-    const handler = walkPath(handlers, msg.path);
+    const nodeRaw = walkPath(contract, msg.path);
+    const handlerRaw = walkPath(handlers, msg.path);
 
-    if (!node || !isContractNode(node) || typeof handler !== 'function') {
+    if (!isContractNode(nodeRaw) || typeof handlerRaw !== 'function') {
       if (msg.kind === 'procedure') {
         send(
           JSON.stringify({
@@ -61,6 +63,9 @@ export function createBridgeHandler<T extends ContractTree>(
       }
       return;
     }
+
+    const node: ContractNode = nodeRaw;
+    const handler = handlerRaw as HandlerFn;
 
     // Validate input
     let validatedInput: unknown = msg.input;
@@ -101,9 +106,10 @@ export function createBridgeHandler<T extends ContractTree>(
     try {
       let output = await handler({ input: validatedInput });
 
-      // Validate output
-      if (node[PROCEDURE_TYPE] === 'procedure' && (node as any)[PROCEDURE_OUTPUT]) {
-        output = await validate((node as any)[PROCEDURE_OUTPUT], output);
+      // Validate output. Narrowing on the discriminant lets us index the
+      // procedure-only `PROCEDURE_OUTPUT` symbol without an `any` cast.
+      if (node[PROCEDURE_TYPE] === 'procedure' && node[PROCEDURE_OUTPUT]) {
+        output = await validate(node[PROCEDURE_OUTPUT], output);
       }
 
       send(
